@@ -5,7 +5,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "DISABLE_ESLINT_PLUGIN=true next build --turbopack",
+    "build": "cross-env DISABLE_ESLINT_PLUGIN=true next build --turbopack",
     "start": "next start",
     "lint": "eslint",
     "drizzle:generate": "drizzle-kit generate --config=drizzle.config.ts",
@@ -39,6 +39,7 @@
     "@types/nodemailer": "^6.4.15",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "cross-env": "^10.0.0",
     "drizzle-kit": "^0.31.4",
     "eslint": "^9",
     "eslint-config-next": "15.5.0",
