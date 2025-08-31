@@ -7,9 +7,7 @@ const nextConfig: NextConfig = {
     root: __dirname,
   },
   // Vercel-compatible configuration
-  experimental: {
-    serverComponentsExternalPackages: ['postgres']
-  },
+  serverExternalPackages: ['postgres'],
   // Disable ESLint during build to prevent build failures from warnings
   eslint: {
     ignoreDuringBuilds: true,
