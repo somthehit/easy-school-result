@@ -6,6 +6,10 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: __dirname,
   },
+  // Vercel-compatible configuration
+  experimental: {
+    serverComponentsExternalPackages: ['postgres']
+  },
   // Disable ESLint during build to prevent build failures from warnings
   eslint: {
     ignoreDuringBuilds: true,
