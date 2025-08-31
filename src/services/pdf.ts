@@ -1,7 +1,7 @@
 import pdfMake from "pdfmake/build/pdfmake";
 import pdfFonts from "pdfmake/build/vfs_fonts";
 
-(pdfMake as any).vfs = pdfFonts.pdfMake.vfs;
+pdfMake.vfs = pdfFonts.pdfMake.vfs;
 
 type MarkRow = {
   subject: string;
@@ -25,7 +25,7 @@ type MarksheetData = {
 };
 
 export async function buildMarksheetPdf(data: MarksheetData): Promise<Blob> {
-  const docDef: any = {
+  const docDef = {
     content: [
       { text: data.schoolName, style: "title" },
       { text: `${data.className} - Section ${data.section}`, margin: [0, 0, 0, 8] },
@@ -73,7 +73,7 @@ export async function buildClassResultPdf(opts: {
   rows: (string | number)[][];
 }): Promise<Blob> {
   const { schoolName, className, section, examName, headers, rows } = opts;
-  const docDef: any = {
+  const docDef = {
     content: [
       { text: schoolName, style: "title" },
       { text: `${className} - Section ${section}` },

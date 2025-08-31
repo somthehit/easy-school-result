@@ -39,7 +39,7 @@ export async function verifyOtp(email: string, code: string, purpose: string) {
     .orderBy(desc(tables.emailOtps.createdAt))
     .limit(1);
 
-  const record = rows[0] as typeof tables.emailOtps.$inferSelect | undefined;
+  const record = rows[0];
   if (!record) throw new Error("No OTP issued. Request a new one.");
 
   if (record.lockedUntil && isBefore(new Date(), new Date(record.lockedUntil))) {
@@ -52,15 +52,15 @@ export async function verifyOtp(email: string, code: string, purpose: string) {
 
   if (record.code !== code || record.purpose !== purpose) {
     const attempts = (record.attempts ?? 0) + 1;
-    const patch: Partial<typeof record> = { attempts } as any;
+    const patch: Partial<typeof tables.emailOtps.$inferSelect> = { attempts };
     if (attempts >= MAX_WRONG_ATTEMPTS) {
-      (patch as any).lockedUntil = addMinutes(new Date(), LOCK_MIN);
-      (patch as any).attempts = 0;
+      patch.lockedUntil = addMinutes(new Date(), LOCK_MIN);
+      patch.attempts = 0;
     }
     await db.update(tables.emailOtps).set(patch).where(eq(tables.emailOtps.id, record.id));
     throw new Error("Invalid code.");
   }
 
   // success
-  await db.update(tables.emailOtps).set({ attempts: 0, lockedUntil: null } as any).where(eq(tables.emailOtps.id, record.id));
+  await db.update(tables.emailOtps).set({ attempts: 0, lockedUntil: null }).where(eq(tables.emailOtps.id, record.id));
 }

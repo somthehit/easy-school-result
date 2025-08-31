@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { safeApiCall } from "@/lib/api-utils";
 
 // Safe pdfMake initialization with fallback
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let pdfMake: any = null;
 let pdfMakeReady = false;
 
@@ -17,8 +17,8 @@ const initializePdfMake = async () => {
     ]);
     
     pdfMake = pdfMakeModule.default;
-    const __vfs = (vfsFonts as any)?.pdfMake?.vfs || (vfsFonts as any)?.vfs;
-    if (__vfs) {
+    const __vfs = (vfsFonts as { pdfMake?: { vfs: Record<string, string> }; vfs?: Record<string, string> })?.pdfMake?.vfs || (vfsFonts as { vfs?: Record<string, string> })?.vfs;
+    if (__vfs && pdfMake) {
       pdfMake.vfs = __vfs;
     }
     pdfMakeReady = true;
@@ -134,10 +134,11 @@ export default function StudentResultExportClient({
     if (student.rollNo != null) details.push(csv(`Roll: ${student.rollNo}`));
     if (student.section && String(student.section).trim() !== "") details.push(csv(`Section: ${student.section}`));
     lines.push(details.join(","));
-    const anyConvSingle = anyConvSingleProp != null ? anyConvSingleProp : !!(single?.rows || []).some((r) => r.converted != null && Number(r.converted) !== Number(r.obtained));
-    const anyConvFinal = anyConvFinalProp != null ? anyConvFinalProp : !!(finalData?.exams || []).some((e) => {
+    // Check for conversion usage in data
+    const hasConversionSingle = anyConvSingleProp != null ? anyConvSingleProp : !!(single?.rows || []).some((r) => r.converted != null && Number(r.converted) !== Number(r.obtained));
+    const hasConversionFinal = anyConvFinalProp != null ? anyConvFinalProp : !!(finalData?.exams || []).some((e) => {
       const map = finalData?.marksByExam?.[e.id] || {};
-      return Object.values(map).some((m: any) => m && m.converted != null && Number(m.converted) !== Number(m.obtained));
+      return Object.values(map).some((m) => m && m.converted != null && Number(m.converted) !== Number(m.obtained));
     });
 
     if (mode === "single" && exam) {
@@ -151,7 +152,7 @@ export default function StudentResultExportClient({
         const hasParts = subjParts.length > 0;
         const thPart = subjParts.find((p) => String(p.name).toUpperCase() === "TH");
         const prPart = subjParts.find((p) => String(p.name).toUpperCase() === "PR");
-        const sumFor = (pred: (mk: any) => boolean) => yMarks.reduce((acc, mk) => (mk.subjectId === s.id && pred(mk) ? acc + (Number(mk.converted ?? mk.obtained) || 0) : acc), 0);
+        const sumFor = (pred: (mk: { subjectId: string; subjectPartId: string | null; converted?: number | null; obtained: number | null }) => boolean) => yMarks.reduce((acc, mk) => (mk.subjectId === s.id && pred(mk) ? acc + (Number(mk.converted ?? mk.obtained) || 0) : acc), 0);
         const th = hasParts ? (thPart ? sumFor((mk) => mk.subjectPartId === thPart.id) : 0) : sumFor(() => true);
         const pr = hasParts ? (prPart ? sumFor((mk) => mk.subjectPartId === prPart.id) : 0) : 0;
         const tot = hasParts ? sumFor(() => true) : th;
@@ -197,7 +198,7 @@ export default function StudentResultExportClient({
           const hasParts = subjParts.length > 0;
           const thPart = subjParts.find((p) => String(p.name).toUpperCase() === "TH");
           const prPart = subjParts.find((p) => String(p.name).toUpperCase() === "PR");
-          const sumFor = (pred: (mk: any) => boolean) => yMarks.reduce((acc, mk) => (mk.examId === e.id && mk.subjectId === s.id && pred(mk) ? acc + (Number(mk.obtained) || 0) : acc), 0);
+          const sumFor = (pred: (mk: { examId: string; subjectId: string; subjectPartId: string | null; obtained: number | null }) => boolean) => yMarks.reduce((acc, mk) => (mk.examId === e.id && mk.subjectId === s.id && pred(mk) ? acc + (Number(mk.obtained) || 0) : acc), 0);
           const th = hasParts ? (thPart ? sumFor((mk) => mk.subjectPartId === thPart.id) : 0) : sumFor(() => true);
           const pr = hasParts ? (prPart ? sumFor((mk) => mk.subjectPartId === prPart.id) : 0) : 0;
           const tot = hasParts ? sumFor(() => true) : th;
@@ -330,7 +331,7 @@ export default function StudentResultExportClient({
       // Fallback: show as provided
       return `DOB : ${String(raw)}`;
     }
-    function gradeLegend(): any[] | null {
+    function gradeLegend(): unknown[] | null {
       // Horizontal grade legend with student summary
       const gradeData = [
         { range: '90-100', grade: 'A+', gpa: '4.0' },
@@ -430,7 +431,7 @@ export default function StudentResultExportClient({
     })();
 
     // Modern header with school logo and name
-    const headerBlock: any[] = [
+    const headerBlock: unknown[] = [
       // School logo and name with decorative styling
       ...(effective.schoolName
         ? [{
@@ -533,14 +534,14 @@ export default function StudentResultExportClient({
       },
     ];
 
-    let content: any[] = [];
+    const content: unknown[] = [];
 
     if (mode === "single" && single && exam) {
       const partsArr = parts || [];
       const yMarks = (yearMarks || []).filter((m) => m.examId === exam.id);
 
       // Detailed layout: grouped TH/PR with Obtained/Conversion/Converted breakdown
-        const body: any[] = [];
+        const body: unknown[] = [];
         body.push([
           { text: "S.N", style: "th", rowSpan: 2, alignment: 'center' },
           { text: "Subjects", style: "th", rowSpan: 2 },
@@ -551,29 +552,20 @@ export default function StudentResultExportClient({
         ]);
         body.push([
           "", "",
-          { text: "Obt.", style: "th2", alignment: 'center' },
+          { text: "Obtained", style: "th2", alignment: 'center' },
           { text: "Conversion In", style: "th2", alignment: 'center' },
           { text: "Converted", style: "th2", alignment: 'center' },
-          { text: "Obt.", style: "th2", alignment: 'center' },
+          { text: "Obtained", style: "th2", alignment: 'center' },
           { text: "Conversion In", style: "th2", alignment: 'center' },
           { text: "Converted", style: "th2", alignment: 'center' },
           "", "",
         ]);
 
-        const getSum = (subjId: string, pred: (mk: any) => boolean, useConv: boolean) =>
-          yMarks.reduce((acc, mk) => (mk.subjectId === subjId && pred(mk) ? acc + (useConv ? (Number(mk.converted ?? mk.obtained) || 0) : (Number(mk.obtained) || 0)) : acc), 0);
-
         subjects.forEach((s, idx) => {
-          const subjParts = partsArr.filter((p) => p.subjectId === s.id);
-          const hasParts = subjParts.length > 0;
-          const thPart = subjParts.find((p) => String(p.name).toUpperCase() === "TH");
-          const prPart = subjParts.find((p) => String(p.name).toUpperCase() === "PR");
-          
           // Get actual marks from single.rows if available
           const subjectRow = single?.rows?.find(row => row.subjectName === s.name);
           const thRaw = subjectRow?.obtained || 0;
           const thConv = subjectRow?.converted || 0;
-          const prRaw = 0; // Most subjects don't have practical
           const prConv = 0;
           const totConv = thConv;
           
@@ -659,7 +651,7 @@ export default function StudentResultExportClient({
             },
             hLineColor: () => borderColor,
             vLineColor: () => borderColor,
-            hLineWidth: (i: number, node: any) => (i <= 2 ? 2 : 1),
+            hLineWidth: (i: number) => (i <= 2 ? 2 : 1),
             vLineWidth: () => 1,
             paddingLeft: () => 6,
             paddingRight: () => 6,
@@ -686,8 +678,8 @@ export default function StudentResultExportClient({
 
     if (mode === "final" && finalData) {
       // Build TH/PR layout with default TH when no parts
-      const body: any[] = [];
-      const top: any[] = [
+      const body: unknown[] = [];
+      const top: unknown[] = [
         { text: "S.N", style: "th", rowSpan: 2 },
         { text: "Subject", style: "th", rowSpan: 2 },
       ];
@@ -698,7 +690,7 @@ export default function StudentResultExportClient({
         top.push({});
       });
       top.push({ text: "Total Obt.", style: "th", rowSpan: 2 });
-      const bottom: any[] = ["", ""];
+      const bottom: unknown[] = ["", ""];
       finalData.exams.forEach(() => {
         bottom.push({ text: "TH", style: "th2" });
         bottom.push({ text: "PR", style: "th2" });
@@ -711,7 +703,7 @@ export default function StudentResultExportClient({
       const partsArr = parts || [];
       const yMarks = yearMarks || [];
       subjects.forEach((s, idx) => {
-        const row: any[] = [
+        const row: unknown[] = [
           { text: String(idx + 1) },
           { text: s.name },
         ];
@@ -720,7 +712,6 @@ export default function StudentResultExportClient({
           // Get marks for this exam and subject from finalData.marksByExam
           const examMarks = finalData.marksByExam[e.id]?.[s.id];
           const obtained = examMarks?.obtained || 0;
-          const converted = examMarks?.converted || obtained;
           
           // For now, show obtained marks in TH column and 0 in PR (since we don't have TH/PR breakdown in finalData)
           // This matches what's shown in the web interface
@@ -734,7 +725,7 @@ export default function StudentResultExportClient({
         row.push({ text: formatNum(totalAcross) });
         body.push(row);
       });
-      const totalsRow: any[] = ["", { text: "Total", bold: true }];
+      const totalsRow: unknown[] = ["", { text: "Total", bold: true }];
       let grandTot = 0;
       finalData.exams.forEach((e) => {
         // Calculate totals for this exam using finalData.totalsByExam
@@ -785,7 +776,7 @@ export default function StudentResultExportClient({
       }
     }
 
-    const dd: any = {
+    const dd: Record<string, unknown> = {
       content: [
         ...headerBlock,
         { canvas: [{ type: "line", x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 0.5, lineColor: borderColor }] },
@@ -818,15 +809,15 @@ export default function StudentResultExportClient({
         // Move Grade Legend to bottom for all templates
         ...(() => {
           // Hide legend for single transcript to save space; show for detailed/final
-          if (mode === 'single' && template === 'transcript') return [] as any;
+          if (mode === 'single' && template === 'transcript') return [];
           const legend = gradeLegend();
-          return legend ? [{ stack: legend, margin: [0, 0, 0, 8] } as any] : [];
+          return legend ? [{ stack: legend, margin: [0, 0, 0, 8] }] : [];
         })(),
         // Co-scholastic table placeholders (none for transcript)
         ...[],
         // Signature block
         ...(() => {
-          const cols: any[] = [];
+          const cols: unknown[] = [];
           // Modern signature design with icons
           const currentUser = effective.preparedBy || 'Teacher';
           cols.push({ width: "*", stack: [
@@ -869,12 +860,7 @@ export default function StudentResultExportClient({
     };
 
     // Page setup with modern portrait design
-    const docDefinition: any = {
-      pageSize: 'A4',
-      pageOrientation: 'portrait',
-      pageMargins: [25, 20, 25, 20],
-    };
-    (dd as any).background = function (currentPage: number, pageSize: any) {
+    (dd as Record<string, unknown>).background = function (currentPage: number, pageSize: { width: number; height: number }) {
       return {
         canvas: [
           // Outer decorative border with rounded corners effect

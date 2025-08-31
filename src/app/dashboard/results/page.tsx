@@ -6,23 +6,32 @@ import React, { useEffect, useMemo, useState } from "react";
 import pdfMake from "pdfmake/build/pdfmake";
 import vfsFonts from "pdfmake/build/vfs_fonts";
 
+// Type definitions
+type Exam = { id: string; name: string; classId: string; [key: string]: unknown };
+type Result = { id: string; studentId: string; examId: string; total: number; percentage: number; grade: string; rank: number; name?: string; rollNo?: string | number; studentCode?: string; percent?: number; [key: string]: unknown };
+type Subject = { id: string; name: string; classId: string; [key: string]: unknown };
+type Part = { id: string; subjectId: string; name: string; partType?: string; [key: string]: unknown };
+type Mark = { id: string; studentId: string; subjectId: string; examId: string; obtained: number; converted: number; [key: string]: unknown };
+type UserProfile = { name?: string | null; principalName?: string | null; schoolName?: string | null; schoolAddress?: string | null; schoolPhone?: string | null; schoolEmail?: string | null };
+type PartSetting = { subjectPartId: string; hasConversion: boolean; convertToMark: number | null; fullMark: number };
+
 // Initialize pdfmake fonts for browser usage
 // @ts-ignore
-const __vfs = (vfsFonts as any)?.pdfMake?.vfs || (vfsFonts as any)?.vfs;
+const __vfs = (vfsFonts as { pdfMake?: { vfs: Record<string, string> }; vfs?: Record<string, string> })?.pdfMake?.vfs || (vfsFonts as { vfs?: Record<string, string> })?.vfs;
 if (__vfs) {
   // @ts-ignore
-  (pdfMake as any).vfs = __vfs;
+  (pdfMake as { vfs: Record<string, string> }).vfs = __vfs;
 }
 
 export default function ResultsReportsPage() {
   const search = useSearchParams();
   const router = useRouter();
-  const [data, setData] = useState<{ exams: any[]; results: any[]; subjects: any[]; parts?: any[]; marks?: any[]; anyConversion?: boolean; classExams?: any[]; allMarks?: any[]; userProfile?: { name?: string | null; principalName?: string | null; schoolName?: string | null; schoolAddress?: string | null; schoolPhone?: string | null; schoolEmail?: string | null }; partSettings?: Array<{ subjectPartId: string; hasConversion: boolean; convertToMark: number | null; fullMark: number }> }>({ exams: [], results: [], subjects: [], parts: [], marks: [], anyConversion: false, classExams: [], allMarks: [], userProfile: { name: null, principalName: null, schoolName: null, schoolAddress: null, schoolPhone: null, schoolEmail: null }, partSettings: [] });
+  const [data, setData] = useState<{ exams: Exam[]; results: Result[]; subjects: Subject[]; parts?: Part[]; marks?: Mark[]; anyConversion?: boolean; classExams?: Exam[]; allMarks?: Mark[]; userProfile?: UserProfile; partSettings?: PartSetting[] }>({ exams: [], results: [], subjects: [], parts: [], marks: [], anyConversion: false, classExams: [], allMarks: [], userProfile: { name: null, principalName: null, schoolName: null, schoolAddress: null, schoolPhone: null, schoolEmail: null }, partSettings: [] });
   const [year, setYear] = useState<string>(String(search.get("year") || ""));
   const [classId, setClassId] = useState<string>(String(search.get("classId") || ""));
   const [examId, setExamId] = useState<string>(String(search.get("examId") || ""));
   const [sortBy, setSortBy] = useState<"name" | "rollNo" | "total" | "percentage" | "grade" | "rank">(
-    (search.get("sortBy") as any) || "rank"
+    (search.get("sortBy") as "name" | "rollNo" | "total" | "percentage" | "grade" | "rank") || "rank"
   );
   const [dir, setDir] = useState<"asc" | "desc">(((search.get("dir") || "asc").toLowerCase() === "desc") ? "desc" : "asc");
 
@@ -39,24 +48,24 @@ export default function ResultsReportsPage() {
         if (!res.ok) {
           throw new Error(`HTTP ${res.status}`);
         }
-        let json: any = null;
+        let json: Record<string, unknown> = {};
         try {
           json = await res.json();
         } catch {
           json = {};
         }
         const safe = {
-          exams: Array.isArray(json?.exams) ? json.exams : [],
-          results: Array.isArray(json?.results) ? json.results : [],
-          subjects: Array.isArray(json?.subjects) ? json.subjects : [],
-          parts: Array.isArray(json?.parts) ? json.parts : [],
-          marks: Array.isArray(json?.marks) ? json.marks : [],
-          anyConversion: Boolean(json?.anyConversion),
-          classExams: Array.isArray(json?.classExams) ? json.classExams : [],
-          allMarks: Array.isArray(json?.allMarks) ? json.allMarks : [],
-          userProfile: (json?.userProfile && typeof json.userProfile === 'object') ? json.userProfile : { name: null, principalName: null, schoolName: null, schoolAddress: null, schoolPhone: null, schoolEmail: null },
-          partSettings: Array.isArray(json?.partSettings) ? json.partSettings : [],
-        } as any;
+          exams: Array.isArray(json.exams) ? json.exams : [],
+          results: Array.isArray(json.results) ? json.results : [],
+          subjects: Array.isArray(json.subjects) ? json.subjects : [],
+          parts: Array.isArray(json.parts) ? json.parts : [],
+          marks: Array.isArray(json.marks) ? json.marks : [],
+          anyConversion: Boolean(json.anyConversion),
+          classExams: Array.isArray(json.classExams) ? json.classExams : [],
+          allMarks: Array.isArray(json.allMarks) ? json.allMarks : [],
+          userProfile: (json.userProfile && typeof json.userProfile === 'object') ? json.userProfile : { name: null, principalName: null, schoolName: null, schoolAddress: null, schoolPhone: null, schoolEmail: null },
+          partSettings: Array.isArray(json.partSettings) ? json.partSettings : [],
+        };
         setData(safe);
       } catch (e) {
         // Fallback to empty, valid shape
@@ -97,13 +106,13 @@ export default function ResultsReportsPage() {
   }
 
   // Helpers to detect Theory/Practical robustly
-  const isTH = (p: any) => {
+  const isTH = (p: { partType?: string; name?: string }) => {
     const pt = String(p?.partType || "").toUpperCase();
     if (pt === "TH") return true;
     const nm = String(p?.name || "").toUpperCase();
     return nm === "TH" || nm.startsWith("TH") || nm.includes("THEORY");
   };
-  const isPR = (p: any) => {
+  const isPR = (p: { partType?: string; name?: string }) => {
     const pt = String(p?.partType || "").toUpperCase();
     if (pt === "PR") return true;
     const nm = String(p?.name || "").toUpperCase();
@@ -113,7 +122,7 @@ export default function ResultsReportsPage() {
   // Part settings map for Convt In per part
   const partSettingById = useMemo(() => {
     const m = new Map<string, { hasConversion: boolean; convertToMark: number | null; fullMark: number }>();
-    (data.partSettings || []).forEach((ps: any) => m.set(ps.subjectPartId, { hasConversion: Boolean(ps.hasConversion), convertToMark: ps.convertToMark != null ? Number(ps.convertToMark) : null, fullMark: Number(ps.fullMark) }));
+    (data.partSettings || []).forEach((ps) => m.set(ps.subjectPartId, { hasConversion: Boolean(ps.hasConversion), convertToMark: ps.convertToMark != null ? Number(ps.convertToMark) : null, fullMark: Number(ps.fullMark) }));
     return m;
   }, [data.partSettings]);
 
@@ -141,25 +150,25 @@ export default function ResultsReportsPage() {
   };
 
   // Build PDF: class-wise table (one row per student) with subject groups TH/PR/Total
-  function buildSelectedExamPDFDoc(): any {
-    const subjects: any[] = data.subjects || [];
-    const parts: any[] = data.parts || [];
-    const marks: any[] = data.marks || [];
-    const students: any[] = data.results || [];
-    const exam = (data.exams || []).find((e: any) => e.id === examId);
+  function buildSelectedExamPDFDoc(): unknown {
+    const subjects: Subject[] = data.subjects || [];
+    const parts: Part[] = data.parts || [];
+    const marks: Mark[] = data.marks || [];
+    const students: Result[] = data.results || [];
+    const exam = (data.exams || []).find((e) => e.id === examId);
     const selectedClass = classesForYear.find(c => c.id === classId);
     const colors = getThemeColors();
 
     // Parts by subject for quick lookup
-    const partsBySubject = new Map<string, any[]>();
-    (parts || []).forEach((p: any) => {
+    const partsBySubject = new Map<string, Part[]>();
+    (parts || []).forEach((p) => {
       const arr = partsBySubject.get(p.subjectId) || [];
       arr.push(p);
       partsBySubject.set(p.subjectId, arr);
     });
 
-    const sumForConv = (studentId: string, subjectId: string, pred: (mk: any) => boolean) =>
-      (marks || []).reduce((acc, mk: any) => (
+    const sumForConv = (studentId: string, subjectId: string, pred: (mk: Mark) => boolean) =>
+      (marks || []).reduce((acc, mk) => (
         mk.studentId === studentId && mk.subjectId === subjectId && pred(mk)
           ? acc + (Number(mk.converted) || 0)
           : acc
@@ -179,13 +188,13 @@ export default function ResultsReportsPage() {
     };
 
     // Header rows with better styling
-    const headerRow1: any[] = [
+    const headerRow1: unknown[] = [
       { text: 'S.N', style: 'th', rowSpan: 2, alignment: 'center' },
       { text: 'Student', style: 'th', rowSpan: 2 },
       { text: 'Roll', style: 'th', rowSpan: 2, alignment: 'center' },
       { text: 'ID', style: 'th', rowSpan: 2, alignment: 'center' },
     ];
-    subjects.forEach((sub: any) => {
+    subjects.forEach((sub) => {
       headerRow1.push({ text: String(sub.name || '-'), style: 'th', colSpan: 3, alignment: 'center' });
       headerRow1.push({});
       headerRow1.push({});
@@ -195,28 +204,28 @@ export default function ResultsReportsPage() {
     headerRow1.push({ text: 'Rank', style: 'th', rowSpan: 2, alignment: 'center' });
     headerRow1.push({ text: 'Division', style: 'th', rowSpan: 2, alignment: 'center' });
 
-    const headerRow2: any[] = [ '', '', '', '' ];
+    const headerRow2: unknown[] = [ '', '', '', '' ];
     subjects.forEach(() => {
       headerRow2.push({ text: 'TH', style: 'th2', alignment: 'center' });
       headerRow2.push({ text: 'PR', style: 'th2', alignment: 'center' });
       headerRow2.push({ text: 'Total', style: 'th2', alignment: 'center' });
     });
 
-    const body: any[] = [ headerRow1, headerRow2 ];
+    const body: unknown[] = [ headerRow1, headerRow2 ];
 
-    students.forEach((stu: any, idx: number) => {
+    students.forEach((stu, idx: number) => {
       let thTotal = 0, grandTotal = 0;
-      const row: any[] = [
+      const row: unknown[] = [
         { text: String(idx + 1), alignment: 'center', fontSize: baseFont },
         { text: String(stu.name || '-'), fontSize: baseFont },
         { text: String(stu.rollNo ?? '-'), alignment: 'center', fontSize: baseFont },
         { text: String(stu.studentCode ?? '-'), alignment: 'center', fontSize: baseFont },
       ];
 
-      subjects.forEach((sub: any) => {
+      subjects.forEach((sub) => {
         const subjParts = (partsBySubject.get(sub.id) || []);
-        const thPart = subjParts.find((p: any) => isTH(p));
-        const prPart = subjParts.find((p: any) => isPR(p));
+        const thPart = subjParts.find((p) => isTH(p));
+        const prPart = subjParts.find((p) => isPR(p));
         const thConv = thPart ? sumForConv(stu.studentId, sub.id, (mk) => mk.subjectPartId === thPart.id) : sumForConv(stu.studentId, sub.id, () => true);
         const prConv = prPart ? sumForConv(stu.studentId, sub.id, (mk) => mk.subjectPartId === prPart.id) : 0;
         const totConv = Number(thConv) + Number(prConv);
@@ -241,13 +250,13 @@ export default function ResultsReportsPage() {
     const extraCols = [18, 22, 16, 20]; // TH Total, Percent, Rank, Division
     const availableWidth = 700 - baseWidths.reduce((a, b) => a + b, 0) - extraCols.reduce((a, b) => a + b, 0);
     const subjectWidth = Math.max(14, Math.floor(availableWidth / (subjects.length * 3))); // Distribute remaining width
-    const widths: any[] = [...baseWidths];
+    const widths: unknown[] = [...baseWidths];
     subjects.forEach(() => { 
       widths.push(subjectWidth, subjectWidth, subjectWidth); // TH, PR, Total
     });
     widths.push(...extraCols); // TH Total, Percent, Rank, Division
 
-    const content: any[] = [
+    const content: unknown[] = [
       {
         table: {
           widths: ['*'],
@@ -355,7 +364,7 @@ export default function ResultsReportsPage() {
       }
     ];
 
-    const dd: any = {
+    const dd: unknown = {
       pageOrientation: 'landscape',
       pageMargins: [10, 10, 10, 10],
       content,
@@ -391,23 +400,23 @@ export default function ResultsReportsPage() {
   const dirIcon = useMemo(() => (dir === "asc" ? "▲" : "▼"), [dir]);
   const markMap = useMemo(() => {
     const m = new Map<string, { obtained: number; converted: number }>();
-    (data.marks || []).forEach((mk: any) => {
+    (data.marks || []).forEach((mk) => {
       m.set(`${mk.studentId}:${mk.subjectId}`, { obtained: Number(mk.obtained), converted: Number(mk.converted) });
     });
     return m;
   }, [data.marks]);
 
   // Part helpers (TH/PR)
-  const thPartIds = useMemo(() => (data.parts || []).filter((p: any) => isTH(p)).map((p: any) => p.id), [data.parts]);
-  const prPartIds = useMemo(() => (data.parts || []).filter((p: any) => isPR(p)).map((p: any) => p.id), [data.parts]);
+  const thPartIds = useMemo(() => (data.parts || []).filter((p) => isTH(p)).map((p) => p.id), [data.parts]);
+  const prPartIds = useMemo(() => (data.parts || []).filter((p) => isPR(p)).map((p) => p.id), [data.parts]);
   const hasTH = thPartIds.length > 0;
   const hasPR = prPartIds.length > 0;
   const anyConversion = Boolean(data.anyConversion);
 
   // Parts by subject for fast lookup
   const partsBySubject = useMemo(() => {
-    const m = new Map<string, any[]>();
-    (data.parts || []).forEach((p: any) => {
+    const m = new Map<string, Part[]>();
+    (data.parts || []).forEach((p) => {
       const arr = m.get(p.subjectId) || [];
       arr.push(p);
       m.set(p.subjectId, arr);
@@ -417,23 +426,23 @@ export default function ResultsReportsPage() {
 
   // Derived filters
   const years = useMemo(() => {
-    const ys = Array.from(new Set((data.exams || []).map((e: any) => String(e.year || "")))).filter(Boolean);
+    const ys = Array.from(new Set((data.exams || []).map((e) => String(e.year || "")))).filter(Boolean);
     ys.sort((a, b) => Number(b) - Number(a));
     return ys;
   }, [data.exams]);
   const classesForYear = useMemo(() => {
     const seen = new Set<string>();
     return (data.exams || [])
-      .filter((e: any) => (year ? String(e.year) === String(year) : true))
-      .map((e: any) => ({ id: e.classId, name: `${e.className} - ${e.classSection}` }))
-      .filter((c: any) => {
+      .filter((e) => (year ? String(e.year) === String(year) : true))
+      .map((e) => ({ id: e.classId, name: `${e.className} - ${e.classSection}` }))
+      .filter((c) => {
         if (!c.id || seen.has(c.id)) return false;
         seen.add(c.id);
         return true;
       });
   }, [data.exams, year]);
   const examsForSelection = useMemo(() => {
-    return (data.exams || []).filter((e: any) => {
+    return (data.exams || []).filter((e) => {
       if (year && String(e.year) !== String(year)) return false;
       if (classId && e.classId !== classId) return false;
       return true;
@@ -444,12 +453,12 @@ export default function ResultsReportsPage() {
   useEffect(() => {
     // if selected class doesn't belong to selected year, clear it
     if (classId) {
-      const ok = (data.exams || []).some((e: any) => e.classId === classId && (!year || String(e.year) === String(year)));
+      const ok = (data.exams || []).some((e) => e.classId === classId && (!year || String(e.year) === String(year)));
       if (!ok) setClassId("");
     }
     // clear exam if it doesn't match filters
     if (examId) {
-      const ok = examsForSelection.some((e: any) => e.id === examId);
+      const ok = examsForSelection.some((e) => e.id === examId);
       if (!ok) setExamId("");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -510,7 +519,7 @@ export default function ResultsReportsPage() {
                   className="w-full rounded-xl border border-gray-200 px-4 py-3 bg-white focus:border-teal-500 focus:ring-2 focus:ring-teal-200 transition-all duration-200"
                 >
                   <option value="">{year ? "Select Class" : "All Classes"}</option>
-                  {classesForYear.map((c: any) => (
+                  {classesForYear.map((c) => (
                     <option key={c.id} value={c.id}>{c.name}</option>
                   ))}
                 </select>
@@ -523,9 +532,9 @@ export default function ResultsReportsPage() {
                   className="w-full rounded-xl border border-gray-200 px-4 py-3 bg-white focus:border-teal-500 focus:ring-2 focus:ring-teal-200 transition-all duration-200"
                 >
                   <option value="">Select Exam</option>
-                  {examsForSelection.map((e: any) => (
+                  {examsForSelection.map((e) => (
                     <option key={e.id} value={e.id}>
-                      {e.name} — {e.term} {e.year}
+                      {String(e.name)} — {String(e.term)} {String(e.year)}
                     </option>
                   ))}
                 </select>
@@ -597,8 +606,8 @@ export default function ResultsReportsPage() {
                       <th className="text-left px-3 py-3 border-b border-gray-200 bg-gray-50 font-semibold text-gray-700" rowSpan={2}>Student</th>
                       <th className="text-left px-3 py-3 border-b border-gray-200 bg-gray-50 font-semibold text-gray-700" rowSpan={2}>Roll</th>
                       <th className="text-left px-3 py-3 border-b border-gray-200 bg-gray-50 font-semibold text-gray-700" rowSpan={2}>ID</th>
-                      {(data.subjects || []).map((sub: any) => (
-                        <th key={`h-${sub.id}`} className="text-center px-3 py-3 border-b border-gray-200 bg-blue-50 font-semibold text-gray-700" colSpan={7}>{sub.name}</th>
+                      {(data.subjects || []).map((sub) => (
+                        <th key={`h-${sub.id}`} className="text-center px-3 py-3 border-b border-gray-200 bg-blue-50 font-semibold text-gray-700" colSpan={7}>{String(sub.name)}</th>
                       ))}
                       <th className="text-center px-3 py-3 border-b border-gray-200 bg-blue-50 font-semibold text-gray-700 text-xs" rowSpan={2}>Total Conv</th>
                       <th className="text-left px-3 py-3 border-b border-gray-200 bg-gray-50 font-semibold text-gray-700 whitespace-nowrap" rowSpan={2}>Percent</th>
@@ -608,7 +617,7 @@ export default function ResultsReportsPage() {
                       <th className="text-left px-3 py-3 border-b border-gray-200 bg-gray-50 font-semibold text-gray-700 whitespace-nowrap" style={{ width: 64 }} rowSpan={2}>View</th>
                     </tr>
                     <tr>
-                      {(data.subjects || []).map((sub: any) => (
+                      {(data.subjects || []).map((sub) => (
                         <React.Fragment key={`sh-${sub.id}`}>
                           <th className="text-center px-2 py-2 border-b border-gray-200 bg-blue-50 font-medium text-gray-600 text-xs">Obt TH. Mark</th>
                           <th className="text-center px-2 py-2 border-b border-gray-200 bg-blue-50 font-medium text-gray-600 text-xs">Convt In</th>
@@ -635,7 +644,7 @@ export default function ResultsReportsPage() {
                         </td>
                       </tr>
                     ) : (
-                      data.results.map((r: any, idx: number) => {
+                      data.results.map((r, idx: number) => {
                         const rank = (r.rank ?? "-");
                         const grade = (r.grade ?? "-");
                         const percent = (r.percentage ?? r.percent ?? null);
@@ -644,22 +653,22 @@ export default function ResultsReportsPage() {
                         return (
                           <tr key={r.studentId} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
                             <td className="py-3 px-3 text-gray-700">{idx + 1}</td>
-                            <td className="py-3 px-3 font-medium text-gray-900">{r.name}</td>
-                            <td className="py-3 px-3 text-gray-700">{r.rollNo}</td>
-                            <td className="py-3 px-3 text-gray-700">{r.studentCode ?? '-'}</td>
-                            {(data.subjects || []).map((sub: any) => {
+                            <td className="py-3 px-3 font-medium text-gray-900">{String(r.name || '-')}</td>
+                            <td className="py-3 px-3 text-gray-700">{String(r.rollNo || '-')}</td>
+                            <td className="py-3 px-3 text-gray-700">{String(r.studentCode || '-')}</td>
+                            {(data.subjects || []).map((sub) => {
                               const subjParts = partsBySubject.get(sub.id) || [];
                               const hasParts = subjParts.length > 0;
-                              const thPart = subjParts.find((p: any) => isTH(p));
-                              const prPart = subjParts.find((p: any) => isPR(p));
-                              const sumForRaw = (predicate: (mk: any) => boolean) =>
-                                (data.marks || []).reduce((acc, mk: any) => (
+                              const thPart = subjParts.find((p) => isTH(p));
+                              const prPart = subjParts.find((p) => isPR(p));
+                              const sumForRaw = (predicate: (mk: Mark) => boolean) =>
+                                (data.marks || []).reduce((acc, mk) => (
                                   mk.studentId === r.studentId && mk.subjectId === sub.id && predicate(mk)
                                     ? acc + (Number(mk.obtained) || 0)
                                     : acc
                                 ), 0);
-                              const sumForConv = (predicate: (mk: any) => boolean) =>
-                                (data.marks || []).reduce((acc, mk: any) => (
+                              const sumForConv = (predicate: (mk: Mark) => boolean) =>
+                                (data.marks || []).reduce((acc, mk) => (
                                   mk.studentId === r.studentId && mk.subjectId === sub.id && predicate(mk)
                                     ? acc + (Number(mk.converted) || 0)
                                     : acc
@@ -702,7 +711,7 @@ export default function ResultsReportsPage() {
                               {r.shareToken ? (
                                 <button 
                                   className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white font-medium rounded-lg transition-all duration-200 text-xs" 
-                                  onClick={() => copy(shareUrl(r.shareToken))}
+                                  onClick={() => copy(shareUrl(String(r.shareToken)))}
                                 >
                                   Copy Link
                                 </button>

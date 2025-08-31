@@ -4,8 +4,8 @@ import { useState } from "react";
 import LoadingButton from "./LoadingButton";
 
 interface SubjectFormProps {
-  classes: any[];
-  masterSubjects: any[];
+  classes: { id: string; name: string; section?: string | null }[];
+  masterSubjects: { id: string; name: string }[];
   createSubject: (formData: FormData) => Promise<void>;
 }
 
@@ -33,8 +33,8 @@ export default function SubjectForm({ classes, masterSubjects, createSubject }: 
       await createSubject(formData);
       e.currentTarget.reset();
       setSubjectName("");
-    } catch (err: any) {
-      setError(err.message || "Failed to create subject");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create subject");
     } finally {
       setIsLoading(false);
     }

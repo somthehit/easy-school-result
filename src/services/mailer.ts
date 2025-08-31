@@ -1,9 +1,8 @@
 import nodemailer from "nodemailer";
 import { env } from "@/env";
-import { buildWelcomeMail } from "@/lib/mail/welcomeMail";
 import { buildVerificationMail } from "@/lib/mail/verificationMail";
 
-let transporter = nodemailer.createTransport({
+const transporter = nodemailer.createTransport({
   host: env.SMTP_HOST,
   port: env.SMTP_PORT,
   secure: env.SMTP_PORT === 465, // true for 465, false for others

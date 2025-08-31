@@ -9,7 +9,7 @@ import path from "path";
 // SSL handling: respect sslmode in URL; otherwise avoid forcing SSL for local/dev
 const urlLower = env.DATABASE_URL.toLowerCase();
 const hasSslmode = urlLower.includes("sslmode=");
-let sslOption: any = undefined;
+let sslOption: boolean | "require" | "allow" | "prefer" | "verify-full" | { ca: string; rejectUnauthorized: boolean } | undefined = undefined;
 if (hasSslmode) {
   if (/(^|[?&])sslmode=require/.test(urlLower)) sslOption = "require";
   else if (/(^|[?&])sslmode=disable/.test(urlLower)) sslOption = false;
@@ -30,7 +30,7 @@ try {
     ca = fs.readFileSync(path.resolve(process.cwd(), caPath)).toString();
   }
   if (ca) {
-    sslOption = { ca, rejectUnauthorized: true } as any;
+    sslOption = { ca, rejectUnauthorized: true };
   }
 } catch {
   // ignore, fallback to previous sslOption

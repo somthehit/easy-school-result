@@ -23,15 +23,15 @@ export async function recomputeResultsForExam({ examId, teacherId }: RecomputeOp
     .select()
     .from(tables.examSubjectSettings)
     .where(eq(tables.examSubjectSettings.examId, examId));
-  const subjOverrideMap = new Map(subjOverrides.map((o: any) => [o.subjectId as string, o]));
+  const subjOverrideMap = new Map(subjOverrides.map((o) => [o.subjectId as string, o]));
 
   // Load subject parts and per-exam part settings
   const parts = await db
     .select()
     .from(tables.subjectParts)
     .where(inArray(tables.subjectParts.subjectId, subjects.map((s) => s.id)));
-  const partsBySubject = new Map<string, any[]>();
-  for (const p of parts as any[]) {
+  const partsBySubject = new Map<string, typeof parts>();
+  for (const p of parts) {
     const arr = partsBySubject.get(p.subjectId) ?? [];
     arr.push(p);
     partsBySubject.set(p.subjectId, arr);
@@ -40,7 +40,7 @@ export async function recomputeResultsForExam({ examId, teacherId }: RecomputeOp
     .select()
     .from(tables.examSubjectPartSettings)
     .where(eq(tables.examSubjectPartSettings.examId, examId));
-  const partSettingByPartId = new Map(partSettings.map((ps: any) => [ps.subjectPartId as string, ps]));
+  const partSettingByPartId = new Map(partSettings.map((ps) => [ps.subjectPartId as string, ps]));
 
   // Get all marks for this exam (aggregate across all teachers)
   const marks = await db
@@ -53,11 +53,11 @@ export async function recomputeResultsForExam({ examId, teacherId }: RecomputeOp
     const subj = subjectMap[m.subjectId];
     if (!subj) continue;
     // Effective grading base: part setting > subject exam override > class subject default
-    const ps = m.subjectPartId ? (partSettingByPartId.get(m.subjectPartId as any) as any | undefined) : undefined;
-    const so = subjOverrideMap.get(m.subjectId as any) as any | undefined;
-    const fullMark = ps?.fullMark ?? so?.fullMark ?? subj.fullMark;
-    const hasConversion = Boolean(ps?.hasConversion ?? so?.hasConversion ?? subj.hasConversion);
-    const convertToMark = (ps?.convertToMark ?? so?.convertToMark ?? subj.convertToMark) ?? null;
+    const ps = m.subjectPartId ? partSettingByPartId.get(m.subjectPartId) : undefined;
+    const so = subjOverrideMap.get(m.subjectId);
+    const fullMark = ps?.fullMark ?? so?.fullMark ?? subj.defaultFullMark;
+    const hasConversion = Boolean(ps?.hasConversion ?? so?.hasConversion ?? false);
+    const convertToMark = (ps?.convertToMark ?? so?.convertToMark) ?? null;
     const converted = computeConverted(Number(m.obtained), fullMark, hasConversion, convertToMark);
     if (round2(Number(m.converted)) !== converted) {
       await db
@@ -80,19 +80,19 @@ export async function recomputeResultsForExam({ examId, teacherId }: RecomputeOp
   // Determine full total to compute percentage
   // If a subject has per-exam part settings, sum their effective targets; otherwise use subject-level effective target
   let fullTotals = 0;
-  for (const s of subjects as any[]) {
+  for (const s of subjects) {
     const psForSubj = (partsBySubject.get(s.id) || []).filter((p) => partSettingByPartId.has(p.id));
     if (psForSubj.length > 0) {
       for (const p of psForSubj) {
-        const setting = partSettingByPartId.get(p.id)! as any;
+        const setting = partSettingByPartId.get(p.id)!;
         const target = setting.hasConversion && setting.convertToMark ? Number(setting.convertToMark) : Number(setting.fullMark);
         fullTotals += target;
       }
     } else {
-      const so = subjOverrideMap.get(s.id) as any | undefined;
-      const hasConv = Boolean(so?.hasConversion ?? s.hasConversion);
-      const convertTo = (so?.convertToMark ?? s.convertToMark) ?? null;
-      const full = Number(so?.fullMark ?? s.fullMark);
+      const so = subjOverrideMap.get(s.id);
+      const hasConv = Boolean(so?.hasConversion ?? false);
+      const convertTo = so?.convertToMark ?? null;
+      const full = Number(so?.fullMark ?? s.defaultFullMark);
       const target = hasConv && convertTo ? Number(convertTo) : full;
       fullTotals += target;
     }
@@ -154,7 +154,7 @@ export async function recomputeResultsForExam({ examId, teacherId }: RecomputeOp
     if (existing[0]) {
       await db.update(tables.results).set(r).where(eq(tables.results.id, existing[0].id));
     } else {
-      await db.insert(tables.results).values(r as any);
+      await db.insert(tables.results).values(r);
     }
   }
 }
@@ -168,7 +168,7 @@ export async function togglePublishResult(examId: string, teacherId: string, pub
       .where(and(eq(tables.results.examId, examId), eq(tables.results.createdByUserId, teacherId)));
     for (const row of rows) {
       if (!row.shareToken) {
-        await db.update(tables.results).set({ shareToken: randomUUID() as any }).where(eq(tables.results.id, row.id));
+        await db.update(tables.results).set({ shareToken: randomUUID() }).where(eq(tables.results.id, row.id));
       }
     }
   }
@@ -182,7 +182,7 @@ export async function getPublishedResultByToken(shareToken: string) {
   const res = await db
     .select()
     .from(tables.results)
-    .where(and(eq(tables.results.shareToken, shareToken as any), eq(tables.results.isPublished, true)))
+    .where(and(eq(tables.results.shareToken, shareToken), eq(tables.results.isPublished, true)))
     .limit(1);
   return res[0];
 }

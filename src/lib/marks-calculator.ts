@@ -186,8 +186,6 @@ export function calculateOverallResult(subjectResults: SubjectResult[]): {
 } {
   let totalMarks = 0;
   let totalFullMarks = 0;
-  let totalCreditHours = 0;
-  let weightedGradePoints = 0;
   let allSubjectsPassed = true;
 
   for (const result of subjectResults) {

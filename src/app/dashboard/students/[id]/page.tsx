@@ -2,6 +2,13 @@ import { db, tables } from "@/db/client";
 import { updateStudentAction } from "../actions";
 import { and, eq, inArray } from "drizzle-orm";
 import React from "react";
+
+// Type definitions
+type Student = { id: string; classId: string; userId: string; name: string; rollNo?: string | number; studentCode?: string; email?: string; phone?: string; address?: string; dob?: string | Date; gender?: string; guardianName?: string; guardianPhone?: string; createdAt?: string | Date; updatedAt?: string | Date; photoUrl?: string; section?: string; contact?: string; parentName?: string; fathersName?: string; mothersName?: string };
+type Class = { id: string; name: string; section?: string; createdAt?: string | Date; updatedAt?: string | Date };
+type Exam = { id: string; name: string; classId: string; year: number; createdByUserId: string; createdAt?: string | Date; updatedAt?: string | Date; term?: string };
+type Mark = { id: string; studentId: string; examId: string; subjectId: string; obtained: number; converted: number; subjectPartId?: string; createdAt?: string | Date; updatedAt?: string | Date };
+type Result = { id: string; studentId: string; examId: string; total: number; percentage: number; grade: string; rank: number; shareToken?: string; createdAt?: string | Date; updatedAt?: string | Date };
 import StudentResultExportClient from "@/components/StudentResultExportClient";
 import StudentIdCardClient from "@/components/StudentIdCardClient";
 import StudentCertificateClient from "@/components/StudentCertificateClient";
@@ -21,7 +28,7 @@ export default async function StudentDetailPage({ params, searchParams }: { para
   const studentRows = await db
     .select()
     .from(tables.students)
-    .where(and(eq(tables.students.id, id as any), eq(tables.students.userId as any, userId as any)))
+    .where(and(eq(tables.students.id, id), eq(tables.students.userId, userId)))
     .limit(1);
   if (!studentRows.length) {
     return (
@@ -31,41 +38,41 @@ export default async function StudentDetailPage({ params, searchParams }: { para
       </div>
     );
   }
-  const student = studentRows[0] as any;
+  const student = studentRows[0] as Student;
 
   // Class row for display and export title
   const classRows = await db.select().from(tables.classes).where(eq(tables.classes.id, student.classId)).limit(1);
-  const cls = classRows[0] as any | undefined;
+  const cls = classRows[0] as Class | undefined;
   const classDisplay = cls ? `${cls.name}${cls.section ? ` — ${cls.section}` : ''}` : undefined;
 
   // Exams available for the student's class (only exams created by this user)
   const exams = await db
     .select()
     .from(tables.exams)
-    .where(and(eq(tables.exams.classId, student.classId as any), eq(tables.exams.createdByUserId as any, userId as any)));
-  const years = Array.from(new Set((exams as any[]).map((e) => e.year))).sort((a, b) => a - b);
-  const defaultYear = selectedYearParam ? Number(selectedYearParam) : ((exams as any[]).length ? (exams as any[])[(exams as any[]).length - 1].year : undefined);
+    .where(and(eq(tables.exams.classId, student.classId), eq(tables.exams.createdByUserId, userId)));
+  const years = Array.from(new Set((exams as Exam[]).map((e) => e.year))).sort((a, b) => a - b);
+  const defaultYear = selectedYearParam ? Number(selectedYearParam) : ((exams as Exam[]).length ? (exams as Exam[])[(exams as Exam[]).length - 1].year : undefined);
   const selectedYear = defaultYear;
 
   // Data for Final mode: exams in selected year, marks and overrides for the student across those exams
-  const yearExams = selectedYear != null ? (exams as any[])
-    .filter((e: any) => e.year === selectedYear)
-    .sort((a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()) : [];
-  const yearExamIds = yearExams.map((e: any) => e.id);
+  const yearExams = selectedYear != null ? (exams as Exam[])
+    .filter((e) => e.year === selectedYear)
+    .sort((a, b) => new Date(String(a.createdAt || 0)).getTime() - new Date(String(b.createdAt || 0)).getTime()) : [];
+  const yearExamIds = yearExams.map((e) => e.id);
   const yearMarks = yearExamIds.length
     ? await db
         .select({ examId: tables.marks.examId, subjectId: tables.marks.subjectId, subjectPartId: tables.marks.subjectPartId, obtained: tables.marks.obtained, converted: tables.marks.converted })
         .from(tables.marks)
-        .where(and(eq(tables.marks.studentId, id), inArray(tables.marks.examId, yearExamIds as any)))
-    : [] as any[];
+        .where(and(eq(tables.marks.studentId, id), inArray(tables.marks.examId, yearExamIds)))
+    : [];
   const yearOverrides = yearExamIds.length
     ? await db
         .select({ examId: tables.examSubjectSettings.examId, subjectId: tables.examSubjectSettings.subjectId, hasConversion: tables.examSubjectSettings.hasConversion, convertToMark: tables.examSubjectSettings.convertToMark })
         .from(tables.examSubjectSettings)
-        .where(inArray(tables.examSubjectSettings.examId, yearExamIds as any))
-    : [] as any[];
+        .where(inArray(tables.examSubjectSettings.examId, yearExamIds))
+    : [];
   const marksByExam: Record<string, Record<string, { obtained: number; converted: number }>> = {};
-  for (const m of yearMarks as any[]) {
+  for (const m of yearMarks) {
     if (!marksByExam[m.examId]) marksByExam[m.examId] = {};
     const prev = marksByExam[m.examId][m.subjectId] || { obtained: 0, converted: 0 };
     marksByExam[m.examId][m.subjectId] = {
@@ -74,13 +81,13 @@ export default async function StudentDetailPage({ params, searchParams }: { para
     };
   }
 
-  const overridesByExam: Record<string, Record<string, any>> = {};
-  for (const o of yearOverrides as any[]) {
+  const overridesByExam: Record<string, Record<string, { examId: string; subjectId: string; hasConversion: boolean; convertToMark: number | null }>> = {};
+  for (const o of yearOverrides) {
     if (!overridesByExam[o.examId]) overridesByExam[o.examId] = {};
     overridesByExam[o.examId][o.subjectId] = o;
   }
   const totalsByExam: Record<string, { obt: number; conv: number }> = {};
-  for (const m of yearMarks as any[]) {
+  for (const m of yearMarks) {
     if (!totalsByExam[m.examId]) totalsByExam[m.examId] = { obt: 0, conv: 0 };
     totalsByExam[m.examId].obt += Number(m.obtained) || 0;
     totalsByExam[m.examId].conv += Number(m.converted) || 0;
@@ -89,11 +96,11 @@ export default async function StudentDetailPage({ params, searchParams }: { para
   // Subjects of student's class
   const subjects = await db.select().from(tables.subjects).where(eq(tables.subjects.classId, student.classId));
   // Subject parts for the class (e.g., TH/PR)
-  const subjectParts = (subjects as any[]).length
+  const subjectParts = (subjects as { id: string; name: string }[]).length
     ? await db
         .select({ id: tables.subjectParts.id, subjectId: tables.subjectParts.subjectId, name: tables.subjectParts.name, partType: tables.subjectParts.partType })
         .from(tables.subjectParts)
-        .where(inArray(tables.subjectParts.subjectId, (subjects as any[]).map((s: any) => s.id)))
+        .where(inArray(tables.subjectParts.subjectId, (subjects as { id: string; name: string }[]).map((s) => s.id)))
     : [] as Array<{ id: string; subjectId: string; name: string; partType?: string }>;
 
   // Per-exam subject part settings for the selected exam (if any) to compute effective targets per part
@@ -557,7 +564,7 @@ export default async function StudentDetailPage({ params, searchParams }: { para
                     student={{
                       name: student.name,
                       className: classDisplay,
-                      rollNo: singleEnroll?.rollNo ?? student.rollNo,
+                      rollNo: typeof (singleEnroll?.rollNo ?? student.rollNo) === 'string' ? Number(singleEnroll?.rollNo ?? student.rollNo) || null : Number(singleEnroll?.rollNo ?? student.rollNo) || null,
                       section: singleEnroll?.section ?? student.section,
                       dob: student.dob,
                       contact: student.contact,
@@ -605,7 +612,7 @@ export default async function StudentDetailPage({ params, searchParams }: { para
                     student={{
                       name: student.name,
                       className: classDisplay,
-                      rollNo: finalEnroll?.rollNo ?? student.rollNo,
+                      rollNo: typeof (finalEnroll?.rollNo ?? student.rollNo) === 'string' ? Number(finalEnroll?.rollNo ?? student.rollNo) || null : Number(finalEnroll?.rollNo ?? student.rollNo) || null,
                       section: finalEnroll?.section ?? student.section,
                       dob: student.dob,
                       contact: student.contact,

@@ -8,7 +8,7 @@ function randomString(len = 8) {
   return s;
 }
 
-export async function saveUploadedImage(fileLike: any, folder: "users" | "students" = "users"): Promise<string> {
+export async function saveUploadedImage(fileLike: File | { arrayBuffer(): Promise<ArrayBuffer>; size: number; type?: string; name?: string }, folder: "users" | "students" = "users"): Promise<string> {
   // Duck-typing: expect arrayBuffer, size, type/name
   if (!fileLike || typeof fileLike.arrayBuffer !== "function") throw new Error("Invalid file");
   const type = String(fileLike.type || "");
