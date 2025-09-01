@@ -30,6 +30,7 @@ export default function StudentsPageClient({ classes, defaultClassId }: Students
         onClose={() => setShowBulkImport(false)}
         type="students"
         classId={defaultClassId}
+        classes={classes}
       />
     </>
   );

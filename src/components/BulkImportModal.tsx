@@ -8,6 +8,7 @@ interface BulkImportModalProps {
   type: 'students' | 'marks';
   classId?: string;
   examId?: string;
+  classes?: Array<{id: string, name: string, section?: string}>;
 }
 
 export default function BulkImportModal({
@@ -16,20 +17,22 @@ export default function BulkImportModal({
   type,
   classId,
   examId,
+  classes = [],
 }: BulkImportModalProps) {
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [errors, setErrors] = useState<string[]>([]);
   const [successMessage, setSuccessMessage] = useState('');
+  const [selectedClassId, setSelectedClassId] = useState<string>(classId || '');
 
   if (!isOpen) return null;
 
   const downloadTemplate = () => {
     if (type === 'students') {
       const csvContent = `name,rollNo,section,dob,contact,parentName,fathersName,mothersName,address,gender
-John Doe,1,A,2005-01-15,1234567890,Parent Name,Father Name,Mother Name,123 Street,male
-Jane Smith,2,A,2005-02-20,0987654321,Parent Name 2,Father Name 2,Mother Name 2,456 Avenue,female`;
+John Doe,1,A,2005-01-15,1234567890,Parent Name,Father Name,Mother Name,123 Street,Male
+Jane Smith,2,A,2005-02-20,0987654321,Parent Name 2,Father Name 2,Mother Name 2,456 Avenue,Female`;
       
       const blob = new Blob([csvContent], { type: 'text/csv' });
       const url = window.URL.createObjectURL(blob);
@@ -72,7 +75,26 @@ Jane Smith,2,A,2005-02-20,0987654321,Parent Name 2,Father Name 2,Mother Name 2,4
       const values = line.split(',').map(v => v.trim());
       const obj: any = {};
       headers.forEach((header, index) => {
-        obj[header] = values[index] || '';
+        let value: any = values[index] || '';
+        
+        // Convert data types for specific fields
+        if (header === 'rollNo') {
+          value = value ? parseInt(value, 10) : 0;
+        } else if (header === 'gender') {
+          // Normalize gender values
+          const normalizedGender = value.toLowerCase();
+          if (normalizedGender === 'male' || normalizedGender === 'm') {
+            value = 'Male';
+          } else if (normalizedGender === 'female' || normalizedGender === 'f') {
+            value = 'Female';
+          } else if (normalizedGender === 'other' || normalizedGender === 'o') {
+            value = 'Other';
+          } else {
+            value = 'Male'; // Default fallback
+          }
+        }
+        
+        obj[header] = value;
       });
       return obj;
     });
@@ -106,13 +128,23 @@ Jane Smith,2,A,2005-02-20,0987654321,Parent Name 2,Father Name 2,Mother Name 2,4
         ? '/api/students/bulk-import'
         : '/api/marks/bulk-import';
 
-      const payload: any = { data };
-      if (type === 'students' && classId) {
-        payload.classId = classId;
+      let payload: any;
+      if (type === 'students') {
+        const targetClassId = selectedClassId || classId;
+        if (!targetClassId) {
+          setErrors(['Please select a class before importing students']);
+          setUploading(false);
+          setUploadProgress(0);
+          return;
+        }
+        payload = { classId: targetClassId, students: data };
+      } else if (type === 'marks' && examId) {
+        payload = { examId, data };
+      } else {
+        payload = { data };
       }
-      if (type === 'marks' && examId) {
-        payload.examId = examId;
-      }
+
+      console.log('Sending payload:', JSON.stringify(payload, null, 2));
 
       const response = await fetch(endpoint, {
         method: 'POST',
@@ -124,13 +156,23 @@ Jane Smith,2,A,2005-02-20,0987654321,Parent Name 2,Father Name 2,Mother Name 2,4
 
       setUploadProgress(100);
 
-      const result = await response.json();
+      let result;
+      try {
+        result = await response.json();
+      } catch (e) {
+        result = { error: `Failed to parse response: ${response.status} ${response.statusText}` };
+      }
 
       if (!response.ok) {
-        if (result.errors && Array.isArray(result.errors)) {
+        console.error('API Error Response:', result);
+        console.error('Response status:', response.status, response.statusText);
+        
+        if (result.details && Array.isArray(result.details)) {
+          setErrors(result.details.map((detail: any) => `${detail.path?.join('.')}: ${detail.message}`));
+        } else if (result.errors && Array.isArray(result.errors)) {
           setErrors(result.errors);
         } else {
-          setErrors([result.error || 'Upload failed']);
+          setErrors([result.error || `Server error: ${response.status} ${response.statusText}`]);
         }
       } else {
         setSuccessMessage(
@@ -185,6 +227,28 @@ Jane Smith,2,A,2005-02-20,0987654321,Parent Name 2,Father Name 2,Mother Name 2,4
               Download {type === 'students' ? 'Students' : 'Marks'} Template
             </button>
           </div>
+
+          {/* Class Selection for Students */}
+          {type === 'students' && classes.length > 0 && (
+            <div>
+              <label htmlFor="class-select" className="block text-sm font-medium text-gray-700 mb-2">
+                Select Class <span className="text-red-500">*</span>
+              </label>
+              <select
+                id="class-select"
+                value={selectedClassId}
+                onChange={(e) => setSelectedClassId(e.target.value)}
+                className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="">Choose a class...</option>
+                {classes.map((cls) => (
+                  <option key={cls.id} value={cls.id}>
+                    {cls.name} {cls.section ? `- ${cls.section}` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* File Upload */}
           <div>

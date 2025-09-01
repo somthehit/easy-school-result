@@ -28,6 +28,8 @@ export async function POST(request: NextRequest) {
     const user = await requireAuthUser();
     const body = await request.json();
     
+    console.log('Received body:', JSON.stringify(body, null, 2));
+    
     // Validate input
     const { classId, students } = BulkImportSchema.parse(body);
     
@@ -126,17 +128,28 @@ export async function POST(request: NextRequest) {
     console.error("Bulk import error:", error);
     
     if (error instanceof z.ZodError) {
+      console.error("Validation errors:", error.issues);
       return NextResponse.json(
         { 
           error: "Validation failed", 
-          details: error.issues 
+          details: error.issues,
+          message: "Please check your data format"
         },
         { status: 400 }
       );
     }
 
+    // Handle database errors
+    if (error && typeof error === 'object' && 'code' in error) {
+      console.error("Database error:", error);
+      return NextResponse.json(
+        { error: "Database error occurred" },
+        { status: 500 }
+      );
+    }
+
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: error instanceof Error ? error.message : "Internal server error" },
       { status: 500 }
     );
   }
