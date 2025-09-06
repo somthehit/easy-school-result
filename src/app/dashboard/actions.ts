@@ -167,31 +167,51 @@ export async function upsertExamSubjectSetting(formData: FormData) {
 }
 
 export async function getDashboardData() {
-  const { id: userId } = await requireAuthUser();
-  // classes
-  const classes = await db
-    .select()
-    .from(tables.classes)
-    .where(eq(tables.classes.userId as any, userId as any))
-    .orderBy(desc(tables.classes.name));
+  try {
+    const { id: userId } = await requireAuthUser();
+    // classes
+    const classes = await db
+      .select()
+      .from(tables.classes)
+      .where(eq(tables.classes.userId as any, userId as any))
+      .orderBy(desc(tables.classes.name));
 
-  // exams with basic counts (created by this user)
-  const exams = await db
-    .select()
-    .from(tables.exams)
-    .where(eq(tables.exams.createdByUserId as any, userId as any))
-    .orderBy(desc(tables.exams.createdAt));
+    // exams with basic counts (created by this user)
+    const exams = await db
+      .select({
+        id: tables.exams.id,
+        name: tables.exams.name,
+        term: tables.exams.term,
+        year: tables.exams.year,
+        classId: tables.exams.classId,
+        createdByUserId: tables.exams.createdByUserId,
+        createdAt: tables.exams.createdAt,
+      })
+      .from(tables.exams)
+      .where(eq(tables.exams.createdByUserId as any, userId as any))
+      .orderBy(desc(tables.exams.createdAt));
 
-  // results grouped by exam
-  const results = await db
-    .select({ examId: tables.results.examId, count: sql<number>`count(*)` })
-    .from(tables.results)
-    .groupBy(tables.results.examId);
+    // results grouped by exam
+    const results = await db
+      .select({ examId: tables.results.examId, count: sql<number>`count(*)` })
+      .from(tables.results)
+      .groupBy(tables.results.examId);
 
-  const resultCountMap = new Map<string, number>();
-  for (const r of results as any[]) {
-    resultCountMap.set(r.examId, Number(r.count));
+    const resultCountMap = new Map<string, number>();
+    for (const r of results as any[]) {
+      resultCountMap.set(r.examId, Number(r.count));
+    }
+
+    return { classes, exams: exams.map((e) => ({ ...e, resultCount: resultCountMap.get(e.id) || 0 })) };
+  } catch (err: any) {
+    console.error('[getDashboardData] DB error:', {
+      message: err?.message,
+      code: err?.code,
+      detail: err?.detail,
+      hint: err?.hint,
+      table: 'exams',
+    });
+    // Return empty but valid structure to avoid crashing the dashboard
+    return { classes: [], exams: [] };
   }
-
-  return { classes, exams: exams.map((e) => ({ ...e, resultCount: resultCountMap.get(e.id) || 0 })) };
 }

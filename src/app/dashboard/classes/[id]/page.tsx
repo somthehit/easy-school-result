@@ -1,5 +1,5 @@
 import { db, tables } from "@/db/client";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { updateStudentAction, deleteStudentAction } from "../../students/actions";
 import { deleteSubjectAction } from "../../subjects/actions";
@@ -28,16 +28,43 @@ export default async function ClassDetailPage({ params, searchParams }: { params
   if (!cls.length) return notFound();
   const klass = cls[0];
 
-  const [subjectsRes, studentsRes, examsRes, resultsRes] = await Promise.allSettled([
+  const [subjectsRes, studentsRes, examsRes, marksRes] = await Promise.allSettled([
     db.select().from(tables.subjects).where(eq(tables.subjects.classId, id)),
     db.select().from(tables.students).where(eq(tables.students.classId, id)),
     db.select().from(tables.exams).where(eq(tables.exams.classId, id)),
-    db.select().from(tables.results).where(eq(tables.results.classId, id)),
+    db.select({
+      id: tables.marks.id,
+      obtained: tables.marks.obtained,
+      converted: tables.marks.converted,
+      studentId: tables.marks.studentId,
+      subjectId: tables.marks.subjectId,
+      examId: tables.marks.examId,
+      subjectName: tables.subjects.name,
+      subjectCode: tables.subjects.code,
+      subjectPartName: tables.subjectParts.name,
+      subjectPartType: tables.subjectParts.partType,
+      rawFullMark: tables.subjectParts.rawFullMark,
+      convertedFullMark: tables.subjectParts.convertedFullMark,
+      examFullMark: tables.examSubjectPartSettings.fullMark,
+      examPassMark: tables.examSubjectPartSettings.passMark,
+      examHasConversion: tables.examSubjectPartSettings.hasConversion,
+      examConvertToMark: tables.examSubjectPartSettings.convertToMark,
+      studentName: tables.students.name,
+    })
+    .from(tables.marks)
+    .leftJoin(tables.subjects, eq(tables.marks.subjectId, tables.subjects.id))
+    .leftJoin(tables.subjectParts, eq(tables.marks.subjectPartId, tables.subjectParts.id))
+    .leftJoin(tables.examSubjectPartSettings, and(
+      eq(tables.examSubjectPartSettings.examId, tables.marks.examId),
+      eq(tables.examSubjectPartSettings.subjectPartId, tables.marks.subjectPartId)
+    ))
+    .leftJoin(tables.students, eq(tables.marks.studentId, tables.students.id))
+    .where(eq(tables.subjects.classId, id)),
   ] as const);
   const subjects = subjectsRes.status === "fulfilled" ? (subjectsRes.value as any[]) : ([] as any[]);
   const students = studentsRes.status === "fulfilled" ? (studentsRes.value as any[]) : ([] as any[]);
   const exams = examsRes.status === "fulfilled" ? (examsRes.value as any[]) : ([] as any[]);
-  const results = resultsRes.status === "fulfilled" ? (resultsRes.value as any[]) : ([] as any[]);
+  const marks = marksRes.status === "fulfilled" ? (marksRes.value as any[]) : ([] as any[]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-purple-50">
@@ -420,78 +447,138 @@ export default async function ClassDetailPage({ params, searchParams }: { params
               </div>
             </div>
             <div className="p-6">
-              {results.length === 0 ? (
+              {marks.length === 0 ? (
                 <div className="text-center py-12">
                   <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                     <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                     </svg>
                   </div>
-                  <p className="text-gray-500 text-lg">No results computed yet</p>
-                  <p className="text-gray-400 text-sm mt-1">Results will appear here after exams are graded</p>
+                  <p className="text-gray-500 text-lg">No marks entered yet</p>
+                  <p className="text-gray-400 text-sm mt-1">Results will appear here after marks are entered</p>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full">
+                  <table className="w-full text-sm">
                     <thead>
+                      <tr className="border-b-2 border-gray-300">
+                        <th rowSpan={2} className="text-left py-3 px-2 font-semibold text-gray-700 border-r border-gray-200 align-bottom">Subject</th>
+                        <th colSpan={3} className="text-center py-2 px-2 font-semibold text-gray-700 border-r border-gray-200 bg-blue-50">Theory</th>
+                        <th colSpan={3} className="text-center py-2 px-2 font-semibold text-gray-700 border-r border-gray-200 bg-green-50">Practical</th>
+                        <th rowSpan={2} className="text-center py-3 px-2 font-semibold text-gray-700 border-r border-gray-200 align-bottom">Total</th>
+                        <th rowSpan={2} className="text-center py-3 px-2 font-semibold text-gray-700 border-r border-gray-200 align-bottom">Percent</th>
+                        <th rowSpan={2} className="text-center py-3 px-2 font-semibold text-gray-700 border-r border-gray-200 align-bottom">Division</th>
+                        <th rowSpan={2} className="text-center py-3 px-2 font-semibold text-gray-700 align-bottom">Grade</th>
+                      </tr>
                       <tr className="border-b border-gray-200">
-                        <th className="text-left py-3 px-4 font-semibold text-gray-700">Student</th>
-                        <th className="text-left py-3 px-4 font-semibold text-gray-700">Total</th>
-                        <th className="text-left py-3 px-4 font-semibold text-gray-700">Percentage</th>
-                        <th className="text-left py-3 px-4 font-semibold text-gray-700">Division</th>
-                        <th className="text-left py-3 px-4 font-semibold text-gray-700">Rank</th>
+                        <th className="text-center py-2 px-1 font-medium text-gray-600 text-xs border-r border-gray-100 bg-blue-50">Obt.</th>
+                        <th className="text-center py-2 px-1 font-medium text-gray-600 text-xs border-r border-gray-100 bg-blue-50">Conv. in</th>
+                        <th className="text-center py-2 px-1 font-medium text-gray-600 text-xs border-r border-gray-200 bg-blue-50">Converted</th>
+                        <th className="text-center py-2 px-1 font-medium text-gray-600 text-xs border-r border-gray-100 bg-green-50">Obt.</th>
+                        <th className="text-center py-2 px-1 font-medium text-gray-600 text-xs border-r border-gray-100 bg-green-50">Conv. in</th>
+                        <th className="text-center py-2 px-1 font-medium text-gray-600 text-xs border-r border-gray-200 bg-green-50">Converted</th>
                       </tr>
                     </thead>
                     <tbody>
                       {(() => {
-                        const studentMap = new Map((students as any[]).map((s: any) => [s.id, s.name]));
-                        const agg = new Map<string, { totalSum: number; percentSum: number; count: number; divisions: Record<string, number> }>();
-                        for (const r of results as any[]) {
-                          const stId = r.studentId as string;
-                          const cur = agg.get(stId) ?? { totalSum: 0, percentSum: 0, count: 0, divisions: {} };
-                          cur.totalSum += Number(r.total) || 0;
-                          cur.percentSum += Number(r.percentage) || 0;
-                          cur.count += 1;
-                          const div = r.division as string | null;
-                          if (div) cur.divisions[div] = (cur.divisions[div] ?? 0) + 1;
-                          agg.set(stId, cur);
-                        }
-                        const rows = Array.from(agg.entries()).map(([studentId, v]) => {
-                          const avgPercent = v.count ? v.percentSum / v.count : 0;
-                          let division: string | null = null;
-                          let maxC = 0;
-                          for (const [d, c] of Object.entries(v.divisions)) {
-                            if (c > maxC) { maxC = c; division = d; }
+                        // Group marks by subject to show Theory and Practical in same row
+                        const subjectGroups = marks.reduce((acc: any, mark: any) => {
+                          const subjectKey = mark.subjectCode || mark.subjectName || 'Unknown';
+                          if (!acc[subjectKey]) {
+                            acc[subjectKey] = {
+                              subjectName: subjectKey,
+                              theory: null,
+                              practical: null
+                            };
                           }
-                          return { studentId, name: studentMap.get(studentId) ?? studentId, total: v.totalSum, percent: avgPercent, division };
-                        });
-                        rows.sort((a, b) => b.total - a.total);
-                        let lastTotal: number | null = null;
-                        let lastRank = 0;
-                        let i = 0;
-                        return rows.map((row) => {
-                          i += 1;
-                          if (lastTotal === null || row.total !== lastTotal) {
-                            lastRank = i;
-                            lastTotal = row.total;
+                          
+                          const partType = (mark.subjectPartName || mark.subjectPartType || '').toLowerCase();
+                          if (partType.includes('theory') || partType.includes('th') || partType === 'theory') {
+                            acc[subjectKey].theory = mark;
+                          } else if (partType.includes('practical') || partType.includes('pr') || partType === 'practical') {
+                            acc[subjectKey].practical = mark;
+                          } else {
+                            if (!acc[subjectKey].theory) {
+                              acc[subjectKey].theory = mark;
+                            } else {
+                              acc[subjectKey].practical = mark;
+                            }
                           }
+                          
+                          return acc;
+                        }, {});
+
+                        return Object.values(subjectGroups).map((subject: any, index: number) => {
+                          const theory = subject.theory;
+                          const practical = subject.practical;
+                          
+                          // Calculate theory values using exam-specific settings
+                          const theoryObt = theory?.obtained || 0;
+                          const theoryExamFull = theory?.examFullMark || theory?.rawFullMark || 50;
+                          const theoryConvertTo = theory?.examConvertToMark || theory?.convertedFullMark || 30;
+                          const theoryConverted = theory?.examHasConversion && theoryExamFull > 0 
+                            ? parseFloat(((theoryObt / theoryExamFull) * theoryConvertTo).toFixed(1))
+                            : theoryObt;
+                          
+                          // Calculate practical values using exam-specific settings
+                          const practicalObt = practical?.obtained || 0;
+                          const practicalExamFull = practical?.examFullMark || practical?.rawFullMark || 50;
+                          const practicalConvertTo = practical?.examConvertToMark || practical?.convertedFullMark || 20;
+                          const practicalConverted = practical?.examHasConversion && practicalExamFull > 0 
+                            ? parseFloat(((practicalObt / practicalExamFull) * practicalConvertTo).toFixed(1))
+                            : practicalObt;
+                          
+                          // Calculate totals
+                          const total = theoryConverted + practicalConverted;
+                          const totalPossible = theoryConvertTo + practicalConvertTo;
+                          const percentage = totalPossible > 0 ? Math.round((total / totalPossible) * 100) : 0;
+                          
+                          // Determine division and grade
+                          let grade = 'F';
+                          let division = 'Fail';
+                          if (percentage >= 80) { grade = 'A+'; division = 'Distinction'; }
+                          else if (percentage >= 70) { grade = 'A'; division = 'First'; }
+                          else if (percentage >= 60) { grade = 'B+'; division = 'Second'; }
+                          else if (percentage >= 50) { grade = 'B'; division = 'Third'; }
+                          else if (percentage >= 40) { grade = 'C'; division = 'Pass'; }
+                          
                           return (
-                            <tr key={row.studentId} className="border-b border-gray-100 hover:bg-gray-50">
-                              <td className="py-3 px-4 font-medium text-gray-900">{row.name}</td>
-                              <td className="py-3 px-4 text-gray-700">{row.total.toFixed(2)}</td>
-                              <td className="py-3 px-4">
-                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                  row.percent >= 80 ? 'bg-green-100 text-green-800' :
-                                  row.percent >= 60 ? 'bg-yellow-100 text-yellow-800' :
+                            <tr key={subject.subjectName} className="border-b border-gray-100 hover:bg-gray-50">
+                              <td className="py-3 px-2 font-medium text-gray-900 border-r border-gray-200">{subject.subjectName}</td>
+                              
+                              {/* Theory columns */}
+                              <td className="py-3 px-1 text-center text-gray-700 border-r border-gray-100 bg-blue-25">{theoryObt}</td>
+                              <td className="py-3 px-1 text-center text-gray-700 border-r border-gray-100 bg-blue-25">{theoryConvertTo}</td>
+                              <td className="py-3 px-1 text-center font-medium text-gray-900 border-r border-gray-200 bg-blue-25">{theoryConverted}</td>
+                              
+                              {/* Practical columns */}
+                              <td className="py-3 px-1 text-center text-gray-700 border-r border-gray-100 bg-green-25">{practicalObt}</td>
+                              <td className="py-3 px-1 text-center text-gray-700 border-r border-gray-100 bg-green-25">{practicalConvertTo}</td>
+                              <td className="py-3 px-1 text-center font-medium text-gray-900 border-r border-gray-200 bg-green-25">{practicalConverted}</td>
+                              
+                              {/* Summary columns */}
+                              <td className="py-3 px-2 text-center font-bold text-gray-900 border-r border-gray-200">{total}</td>
+                              <td className="py-3 px-2 text-center border-r border-gray-200">
+                                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                                  percentage >= 80 ? 'bg-green-100 text-green-800' :
+                                  percentage >= 60 ? 'bg-yellow-100 text-yellow-800' :
+                                  percentage >= 40 ? 'bg-blue-100 text-blue-800' :
                                   'bg-red-100 text-red-800'
                                 }`}>
-                                  {row.percent.toFixed(1)}%
+                                  {percentage}%
                                 </span>
                               </td>
-                              <td className="py-3 px-4 text-gray-700">{row.division ?? "—"}</td>
-                              <td className="py-3 px-4">
-                                <span className="inline-flex items-center justify-center w-8 h-8 bg-blue-100 text-blue-800 rounded-full text-sm font-bold">
-                                  {lastRank}
+                              <td className="py-3 px-2 text-center text-gray-700 border-r border-gray-200">{division}</td>
+                              <td className="py-3 px-2 text-center">
+                                <span className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-bold ${
+                                  grade === 'A+' ? 'bg-green-100 text-green-800' :
+                                  grade === 'A' ? 'bg-blue-100 text-blue-800' :
+                                  grade === 'B+' ? 'bg-yellow-100 text-yellow-800' :
+                                  grade === 'B' ? 'bg-orange-100 text-orange-800' :
+                                  grade === 'C' ? 'bg-gray-100 text-gray-800' :
+                                  'bg-red-100 text-red-800'
+                                }`}>
+                                  {grade}
                                 </span>
                               </td>
                             </tr>
