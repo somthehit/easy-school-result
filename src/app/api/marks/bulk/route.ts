@@ -4,8 +4,9 @@ import { cookies } from "next/headers";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import { recomputeResultsForExam } from "@/services/results";
 
-function requireAuthUser() {
-  const raw = (cookies() as any).get?.("auth_user")?.value as string | undefined;
+async function requireAuthUser() {
+  const cookieStore = await cookies();
+  const raw = cookieStore.get("auth_user")?.value as string | undefined;
   if (!raw) throw new Error("Unauthorized");
   try {
     const u = JSON.parse(raw) as { id: string; name: string; email: string };
@@ -18,7 +19,7 @@ function requireAuthUser() {
 
 export async function POST(req: NextRequest) {
   try {
-    const { id: teacherId } = requireAuthUser();
+    const { id: teacherId } = await requireAuthUser();
     const body = await req.json();
     const { examId, subjectId, items } = body as {
       examId: string;

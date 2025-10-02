@@ -166,9 +166,10 @@ export async function upsertExamSubjectSetting(formData: FormData) {
   }
 }
 
-export async function getDashboardData() {
+export async function getDashboardData(classId?: string) {
   try {
     const { id: userId } = await requireAuthUser();
+    
     // classes
     const classes = await db
       .select()
@@ -176,7 +177,15 @@ export async function getDashboardData() {
       .where(eq(tables.classes.userId as any, userId as any))
       .orderBy(desc(tables.classes.name));
 
-    // exams with basic counts (created by this user)
+    // Filter conditions based on classId
+    const examFilter = classId 
+      ? and(
+          eq(tables.exams.createdByUserId as any, userId as any),
+          eq(tables.exams.classId, classId as any)
+        )
+      : eq(tables.exams.createdByUserId as any, userId as any);
+
+    // exams with basic counts (created by this user, optionally filtered by class)
     const exams = await db
       .select({
         id: tables.exams.id,
@@ -188,8 +197,41 @@ export async function getDashboardData() {
         createdAt: tables.exams.createdAt,
       })
       .from(tables.exams)
-      .where(eq(tables.exams.createdByUserId as any, userId as any))
+      .where(examFilter)
       .orderBy(desc(tables.exams.createdAt));
+
+    // students filtered by class if specified
+    const studentFilter = classId 
+      ? eq(tables.students.classId, classId as any)
+      : sql`1=1`; // No filter if no classId
+
+    const students = await db
+      .select({
+        id: tables.students.id,
+        name: tables.students.name,
+        rollNo: tables.students.rollNo,
+        classId: tables.students.classId,
+        section: tables.students.section,
+      })
+      .from(tables.students)
+      .where(studentFilter)
+      .orderBy(tables.students.name);
+
+    // subjects filtered by class if specified
+    const subjectFilter = classId 
+      ? eq(tables.subjects.classId, classId as any)
+      : sql`1=1`; // No filter if no classId
+
+    const subjects = await db
+      .select({
+        id: tables.subjects.id,
+        name: tables.subjects.name,
+        code: tables.subjects.code,
+        classId: tables.subjects.classId,
+      })
+      .from(tables.subjects)
+      .where(subjectFilter)
+      .orderBy(tables.subjects.name);
 
     // results grouped by exam
     const results = await db
@@ -202,7 +244,13 @@ export async function getDashboardData() {
       resultCountMap.set(r.examId, Number(r.count));
     }
 
-    return { classes, exams: exams.map((e) => ({ ...e, resultCount: resultCountMap.get(e.id) || 0 })) };
+    return { 
+      classes, 
+      exams: exams.map((e) => ({ ...e, resultCount: resultCountMap.get(e.id) || 0 })),
+      students,
+      subjects,
+      selectedClassId: classId || null
+    };
   } catch (err: any) {
     console.error('[getDashboardData] DB error:', {
       message: err?.message,
@@ -212,6 +260,6 @@ export async function getDashboardData() {
       table: 'exams',
     });
     // Return empty but valid structure to avoid crashing the dashboard
-    return { classes: [], exams: [] };
+    return { classes: [], exams: [], students: [], subjects: [], selectedClassId: null };
   }
 }

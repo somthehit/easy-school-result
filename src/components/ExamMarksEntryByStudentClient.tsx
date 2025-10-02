@@ -67,6 +67,8 @@ export default function ExamMarksEntryByStudentClient({
 
   // Save success list for current student
   const [savedSubjectIds, setSavedSubjectIds] = useState<Set<string>>(new Set());
+  const [loadingSubjectIds, setLoadingSubjectIds] = useState<Set<string>>(new Set());
+  const [isLoadingAll, setIsLoadingAll] = useState(false);
   const [toast, setToast] = useState<{ type: "success" | "error"; msg: string } | null>(null);
   const timer = useRef<number | null>(null);
   function showToast(type: "success" | "error", msg: string) {
@@ -89,6 +91,8 @@ export default function ExamMarksEntryByStudentClient({
   // Reset saved list when URL student changes (handled server-side on reload) - defensive reset on mount
   useEffect(() => {
     setSavedSubjectIds(new Set());
+    setLoadingSubjectIds(new Set());
+    setIsLoadingAll(false);
   }, [selectedStudentId]);
 
   function computeConverted(obtained: number | "", opts?: { fullMark?: number | null; hasConversion?: boolean; convertToMark?: number | null }): number | "" {
@@ -110,6 +114,10 @@ export default function ExamMarksEntryByStudentClient({
   }
 
   async function saveOneSubject(subjectId: string) {
+    if (loadingSubjectIds.has(subjectId)) return; // Prevent double-clicking
+    
+    setLoadingSubjectIds(prev => new Set(prev).add(subjectId));
+    
     try {
       const subjParts = partsBySubject[subjectId] || [];
       const rIdx = rows.findIndex((r) => r.subjectId === subjectId);
@@ -148,10 +156,20 @@ export default function ExamMarksEntryByStudentClient({
       showToast("success", "Saved");
     } catch (e: any) {
       showToast("error", e?.message || "Save failed");
+    } finally {
+      setLoadingSubjectIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(subjectId);
+        return newSet;
+      });
     }
   }
 
   async function saveAll() {
+    if (isLoadingAll) return; // Prevent double-clicking
+    
+    setIsLoadingAll(true);
+    
     try {
       const items: Array<any> = [];
       for (const r of rows) {
@@ -186,6 +204,8 @@ export default function ExamMarksEntryByStudentClient({
       showToast(anyFail ? "error" : "success", anyFail ? "Some failed" : "All changes saved");
     } catch (e: any) {
       showToast("error", e?.message || "Save failed");
+    } finally {
+      setIsLoadingAll(false);
     }
   }
 
@@ -198,6 +218,36 @@ export default function ExamMarksEntryByStudentClient({
         return isValueInvalid(v.obtained, p?.fullMark ?? null);
       });
     });
+  }, [rows, partsBySubject]);
+
+  // Calculate total marks
+  const totalMarks = useMemo(() => {
+    let totalObtained = 0;
+    let totalConverted = 0;
+    let hasAnyMarks = false;
+
+    for (const r of rows) {
+      const parts = partsBySubject[r.subjectId] || [];
+      if (parts.length === 0) {
+        // Legacy single mark per subject
+        if (r.obtained !== "" && typeof r.obtained === "number") {
+          totalObtained += r.obtained;
+          totalConverted += (r.converted !== "" && typeof r.converted === "number") ? r.converted : r.obtained;
+          hasAnyMarks = true;
+        }
+      } else {
+        // Part-based marks
+        for (const [pid, partMark] of Object.entries(r.partMarks)) {
+          if (partMark.obtained !== "" && typeof partMark.obtained === "number") {
+            totalObtained += partMark.obtained;
+            totalConverted += (partMark.converted !== "" && typeof partMark.converted === "number") ? partMark.converted : partMark.obtained;
+            hasAnyMarks = true;
+          }
+        }
+      }
+    }
+
+    return { totalObtained, totalConverted, hasAnyMarks };
   }, [rows, partsBySubject]);
 
   return (
@@ -240,6 +290,7 @@ export default function ExamMarksEntryByStudentClient({
             {rows.map((r, idx) => {
               const parts = partsBySubject[r.subjectId] || [];
               const isSaved = savedSubjectIds.has(r.subjectId);
+              const isLoading = loadingSubjectIds.has(r.subjectId);
               return (
                 <tr key={r.subjectId} className="hover:bg-gray-50 transition-colors duration-150">
                   <td className="px-6 py-4">
@@ -352,12 +403,25 @@ export default function ExamMarksEntryByStudentClient({
                   <td className="px-6 py-4">
                     <button 
                       onClick={() => saveOneSubject(r.subjectId)} 
+                      disabled={isLoading}
                       className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-all duration-200 shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      Save
+                      {isLoading ? (
+                        <>
+                          <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="m4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          Saving...
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                          Save
+                        </>
+                      )}
                     </button>
                   </td>
                 </tr>
@@ -367,6 +431,38 @@ export default function ExamMarksEntryByStudentClient({
         </table>
       </div>
       </div>
+
+      {/* Total Marks Display */}
+      {totalMarks.hasAnyMarks && (
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">Total Marks</h3>
+                <p className="text-sm text-gray-600">Overall score for this student</p>
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-3xl font-bold text-blue-600">
+                {totalMarks.totalObtained}
+                {totalMarks.totalConverted !== totalMarks.totalObtained && (
+                  <span className="text-lg text-gray-500 ml-2">
+                    ({totalMarks.totalConverted} converted)
+                  </span>
+                )}
+              </div>
+              <div className="text-sm text-gray-500 mt-1">
+                Total marks obtained
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Save All Button */}
       <div className="flex justify-between items-center">
@@ -381,15 +477,27 @@ export default function ExamMarksEntryByStudentClient({
           )}
         </div>
         <button
-          disabled={hasAnyInvalid}
-          title={hasAnyInvalid ? "Fix invalid marks before saving" : undefined}
+          disabled={hasAnyInvalid || isLoadingAll}
+          title={hasAnyInvalid ? "Fix invalid marks before saving" : isLoadingAll ? "Saving all changes..." : undefined}
           onClick={saveAll}
           className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all duration-200 shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-blue-600"
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
-          </svg>
-          Save All Changes
+          {isLoadingAll ? (
+            <>
+              <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="m4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              Saving All Changes...
+            </>
+          ) : (
+            <>
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+              </svg>
+              Save All Changes
+            </>
+          )}
         </button>
       </div>
 
