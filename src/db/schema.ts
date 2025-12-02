@@ -172,6 +172,8 @@ export const students = pgTable(
     section: varchar("section", { length: 20 }),
     // Use SQL DATE for birthday (no time zone semantics)
     dob: date("dob"),
+    // Store Nepali BS date string alongside AD dob for reports/printing
+    dobBs: varchar("dob_bs", { length: 20 }),
     contact: varchar("contact", { length: 50 }),
     parentName: varchar("parent_name", { length: 255 }),
     fathersName: varchar("fathers_name", { length: 255 }),

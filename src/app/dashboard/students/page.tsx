@@ -1,5 +1,6 @@
 import { getStudentsData, createStudent } from "./actions";
 import ClassSelectWithSection from "@/components/ClassSelectWithSection";
+import BsDobFields from "@/components/BsDobFields";
 import StudentsPageClient from "./StudentsPageClient";
 
 export const dynamic = "force-dynamic";
@@ -122,14 +123,7 @@ export default async function StudentsPage({ searchParams }: { searchParams: Pro
                     sectionInputName="section"
                   />
                 </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-gray-700">Date of Birth</label>
-                  <input 
-                    name="dob" 
-                    type="date" 
-                    className="w-full rounded-lg border border-gray-200 px-3 py-2 bg-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-200 transition-all duration-200 text-sm" 
-                  />
-                </div>
+                <BsDobFields adName="dob" />
               </div>
 
               {/* Contact and Parent Info */}

@@ -39,6 +39,7 @@ export async function createStudent(formData: FormData) {
     const sectionInput = String(formData.get("section") || "").trim();
     const genderRaw = String(formData.get("gender") || "").trim().toLowerCase();
     const dobRaw = String(formData.get("dob") || "").trim();
+    const dobBsRaw = String(formData.get("dobBs") || "").trim();
     const contact = String(formData.get("contact") || "").trim();
     const parentName = String(formData.get("parentName") || "").trim();
     const fathersName = String(formData.get("fathersName") || "").trim();
@@ -100,6 +101,7 @@ export async function createStudent(formData: FormData) {
       section: section ?? null,
       gender: genderRaw,
       dob: toDateOnly(dobRaw),
+      dobBs: dobBsRaw || null,
       contact: contact || null,
       parentName: parentName || null,
       fathersName: fathersName || null,
@@ -155,6 +157,7 @@ export async function updateStudentAction(formData: FormData) {
   const classId = String(formData.get("classId") || "").trim();
   const genderRaw = String(formData.get("gender") || "").trim().toLowerCase();
   const dobRaw = String(formData.get("dob") || "").trim();
+  const dobBsRaw = String(formData.get("dobBs") || "").trim();
   const contact = String(formData.get("contact") || "").trim();
   const parentName = String(formData.get("parentName") || "").trim();
   const fathersName = String(formData.get("fathersName") || "").trim();

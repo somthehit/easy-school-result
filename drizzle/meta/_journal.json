@@ -8,6 +8,13 @@
       "when": 1764079925250,
       "tag": "0000_serious_night_thrasher",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1764679749744,
+      "tag": "0001_lame_cerise",
+      "breakpoints": true
     }
   ]
 }

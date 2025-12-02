@@ -1,0 +1,1 @@
+ALTER TABLE "students" ADD COLUMN "dob_bs" varchar(20);

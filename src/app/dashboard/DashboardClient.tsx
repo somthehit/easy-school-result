@@ -162,6 +162,70 @@ export default function DashboardClient({ data }: DashboardClientProps) {
 
         {/* Management Cards Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Classes Card */}
+          <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+            <div className="bg-gradient-to-r from-orange-500 to-orange-600 px-6 py-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                    </svg>
+                  </div>
+                  <h2 className="text-xl font-bold text-white">Classes</h2>
+                </div>
+                <a
+                  href="/dashboard/classes"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-xl transition-all duration-200 font-medium backdrop-blur-sm"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  Manage Classes
+                </a>
+              </div>
+            </div>
+            <div className="p-6">
+              {data.classes.length === 0 ? (
+                <div className="text-center py-8">
+                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                    </svg>
+                  </div>
+                  <p className="text-gray-500">No classes found</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {data.classes.slice(0, 5).map((cls) => (
+                    <div key={cls.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                      <div>
+                        <p className="font-medium text-gray-900">{cls.name}</p>
+                        <p className="text-sm text-gray-500">{cls.section || 'No Section'}</p>
+                      </div>
+                      <a
+                        href={`/dashboard/classes/${cls.id}`}
+                        className="text-orange-600 hover:text-orange-700 text-sm font-medium"
+                      >
+                        View →
+                      </a>
+                    </div>
+                  ))}
+                  {data.classes.length > 5 && (
+                    <div className="text-center pt-2">
+                      <a
+                        href="/dashboard/classes"
+                        className="text-orange-600 hover:text-orange-700 text-sm font-medium"
+                      >
+                        View all {data.classes.length} classes →
+                      </a>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* Students Card */}
           <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
             <div className="bg-gradient-to-r from-purple-500 to-purple-600 px-6 py-4">
@@ -368,6 +432,70 @@ export default function DashboardClient({ data }: DashboardClientProps) {
             </div>
           </div>
 
+          {/* Classes Card */}
+          <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+            <div className="bg-gradient-to-r from-orange-500 to-orange-600 px-6 py-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                    </svg>
+                  </div>
+                  <h2 className="text-xl font-bold text-white">Classes</h2>
+                </div>
+                <a
+                  href="/dashboard/classes"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-xl transition-all duration-200 font-medium backdrop-blur-sm"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  Manage Classes
+                </a>
+              </div>
+            </div>
+            <div className="p-6">
+              {data.classes.length === 0 ? (
+                <div className="text-center py-8">
+                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                    </svg>
+                  </div>
+                  <p className="text-gray-500">No classes found</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {data.classes.slice(0, 5).map((cls) => (
+                    <div key={cls.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                      <div>
+                        <p className="font-medium text-gray-900">{cls.name}</p>
+                        <p className="text-sm text-gray-500">{cls.section || 'No Section'}</p>
+                      </div>
+                      <a
+                        href={`/dashboard/classes/${cls.id}`}
+                        className="text-orange-600 hover:text-orange-700 text-sm font-medium"
+                      >
+                        View →
+                      </a>
+                    </div>
+                  ))}
+                  {data.classes.length > 5 && (
+                    <div className="text-center pt-2">
+                      <a
+                        href="/dashboard/classes"
+                        className="text-orange-600 hover:text-orange-700 text-sm font-medium"
+                      >
+                        View all {data.classes.length} classes →
+                      </a>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* Quick Actions Card */}
           <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
             <div className="bg-gradient-to-r from-orange-500 to-red-600 px-6 py-4">
@@ -382,36 +510,11 @@ export default function DashboardClient({ data }: DashboardClientProps) {
             </div>
             <div className="p-6 space-y-3">
               <a
-                href="/dashboard/classes"
-                className="block w-full rounded-lg bg-emerald-500 px-4 py-3 text-center font-medium text-white hover:bg-emerald-600 transition-colors"
-              >
-                Manage Classes
-              </a>
-              
-              <a
                 href="/dashboard/results"
                 className="block w-full rounded-lg bg-indigo-500 px-4 py-3 text-center font-medium text-white hover:bg-indigo-600 transition-colors"
               >
                 View Results
               </a>
-
-              {selectedClassId && (
-                <>
-                  <a
-                    href={`/dashboard/classes/${selectedClassId}`}
-                    className="block w-full rounded-lg bg-purple-500 px-4 py-3 text-center font-medium text-white hover:bg-purple-600 transition-colors"
-                  >
-                    View Class Details
-                  </a>
-                  
-                  <a
-                    href={`/dashboard/results?classId=${selectedClassId}`}
-                    className="block w-full rounded-lg bg-blue-500 px-4 py-3 text-center font-medium text-white hover:bg-blue-600 transition-colors"
-                  >
-                    Class Results
-                  </a>
-                </>
-              )}
             </div>
           </div>
         </div>
