@@ -98,6 +98,9 @@ export default function CompleteProfilePage() {
               <input 
                 name="schoolContact" 
                 required 
+                type="tel"
+                pattern="(?:\\+977|00977)?9\\d{9}"
+                title="Invalid phone number. Use 10 digits, optionally with +977 or 00977."
                 className="w-full rounded-md border border-gray-300 bg-white text-black placeholder-gray-400 px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" 
                 placeholder="Phone number"
               />
@@ -139,6 +142,9 @@ export default function CompleteProfilePage() {
             <input 
               name="principalContact" 
               required 
+              type="tel"
+              pattern="(?:\\+977|00977)?9\\d{9}"
+              title="Invalid phone number. Use 10 digits, optionally with +977 or 00977."
               className="w-full rounded-md border border-gray-300 bg-white text-black placeholder-gray-400 px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" 
               placeholder="Principal's phone number"
             />
