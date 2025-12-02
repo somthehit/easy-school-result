@@ -60,14 +60,22 @@ export async function updateProfileAction(formData: FormData) {
 }
 
 export async function updateSchoolDetailsAction(formData: FormData) {
+  const phoneRegex = /^(?:\+977|00977)?9\d{9}$/;
+
   const schema = z.object({
     schoolName: z.string().min(2),
     schoolAddress: z.string().min(2),
-    schoolContact: z.string().min(5),
+    schoolContact: z
+      .string()
+      .trim()
+      .regex(phoneRegex, "Invalid phone number. Use 10 digits, optionally with +977 or 00977."),
     estb: z.string().min(1),
     regNumber: z.string().min(1),
     principalName: z.string().min(2),
-    principalContact: z.string().min(5),
+    principalContact: z
+      .string()
+      .trim()
+      .regex(phoneRegex, "Invalid phone number. Use 10 digits, optionally with +977 or 00977."),
     schoolLogo: z.string().url().optional().or(z.literal("")).transform((v) => (v === "" ? null : v)),
   });
   const input = {
