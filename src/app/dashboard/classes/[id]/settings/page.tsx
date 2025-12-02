@@ -23,11 +23,8 @@ export default async function ClassSettingsPage({ params, searchParams }: { para
     );
   }
 
-  let setting: any = null;
-  try {
-    const s = await db.select().from(tables.classSettings).where(eq(tables.classSettings.classId, classId)).limit(1);
-    setting = s[0] || null;
-  } catch {}
+  // classSettings table has been removed; use null to render empty form
+  const setting: any = null;
 
   const saved = typeof sp?.saved !== "undefined";
 
@@ -64,33 +61,9 @@ async function upsertSettings(formData: FormData) {
   // Removed parent signature label from class settings (use student's parent)
 
   try {
-    // Upsert by class_id unique constraint
-    await db
-      .insert(tables.classSettings)
-      .values({
-        classId,
-        schoolName,
-        schoolAddress,
-        estb: estb || null,
-        preparedBy: preparedBy || null,
-        checkedBy: checkedBy || null,
-        approvedBy: approvedBy || null,
-      } as any)
-      .onConflictDoUpdate({
-        target: tables.classSettings.classId,
-        set: {
-          schoolName,
-          schoolAddress,
-          estb: estb || null,
-          preparedBy: preparedBy || null,
-          checkedBy: checkedBy || null,
-          approvedBy: approvedBy || null,
-          updatedAt: new Date(),
-        },
-      });
-
-    revalidatePath(`/dashboard/classes/${classId}/settings`);
-    redirect(`/dashboard/classes/${classId}/settings?saved=1`);
+    // classSettings table no longer exists; for now just redirect back to the class page
+    revalidatePath(`/dashboard/classes/${classId}`);
+    redirect(`/dashboard/classes/${classId}`);
   } catch (e: any) {
     return { ok: false, error: e?.message || "Failed to save settings" } as const;
   }
